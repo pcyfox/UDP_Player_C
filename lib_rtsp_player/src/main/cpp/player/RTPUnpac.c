@@ -114,6 +114,9 @@ static int isDebug = 1;
    * 荷载结构
    *
    */
+
+static unsigned int last_Sq=0;
+
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
              Callback callback) {
     UnpackResult result = (UnpackResult) malloc(sizeof(struct RtpUnpackResult));
@@ -127,24 +130,22 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
         }
     }
 */
-
     int offHeadSize = length - 12;
     if (offHeadSize < 2) {
         LOGE("illegal data,it's too small");
         return -1;
     }
-
     const int currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
     result->curr_Sq = currSq;
-    if (result->last_Sq != 0) {
-        result->pkt_interval = result->last_Sq - currSq;
-        if (isDebug && result->pkt_interval != 1) {
-            LOGW("maybe lost %d frame lastSq=%d,currSq=%d", result->pkt_interval, result->last_Sq,
+    if (last_Sq != 0) {
+        result->pkt_interval = last_Sq - currSq;
+        if (isDebug && result->pkt_interval != -1) {
+            LOGW("maybe lost %d frame lastSq=%d,currSq=%d", result->pkt_interval, last_Sq,
                  currSq);
         }
     }
 
-    result->last_Sq = currSq;
+    last_Sq = currSq;
     static int frameLen = 0;
     //第13个字节
     unsigned char fCurPacketNALUnitType = (rtpPacket[12] & 0x1F);
@@ -161,11 +162,13 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             data[1] = head_2;
             data[2] = head_3;
             data[3] = head_4;
+/*
             if (fCurPacketNALUnitType == 1) {
                 LOGD("Frame:P");
             } else {
                 LOGI("Frame:I");
             }
+*/
 
             memcpy(data + 4, rtpPacket + 12, offHeadSize);
             result->length = 4 + offHeadSize;
@@ -207,7 +210,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             ppsResult->data = pps;
             ppsResult->packet_NAL_unit_type = result->packet_NAL_unit_type;
             ppsResult->pkt_interval = result->pkt_interval;
-            ppsResult->last_Sq = result->last_Sq;
             callback(ppsResult);
 
             //--------------IDR------------------------------
@@ -225,7 +227,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
                 dataResult->data = idr;
                 dataResult->packet_NAL_unit_type = result->packet_NAL_unit_type;
                 dataResult->pkt_interval = result->pkt_interval;
-                dataResult->last_Sq = result->last_Sq;
                 callback(dataResult);
             }
             break;
@@ -246,9 +247,8 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
 
             // For these NALUs, the first two bytes are the FU indicator （at 13） and the FU header (14).
             // If the start bit is set, we reconstruct the original NAL header into byte 1:
-
             int FU_Header = rtpPacket[13] & 0xff;
-       //     LOGD("------------extra FU_Header= %02x", FU_Header);
+            //     LOGD("------------extra FU_Header= %02x", FU_Header);
             if (FU_Header == 0x85 || FU_Header == 0x81) {
                 rtpPacket[9] = head_1;
                 rtpPacket[10] = head_2;

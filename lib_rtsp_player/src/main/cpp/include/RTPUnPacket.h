@@ -10,7 +10,6 @@ struct RtpUnpackResult {
     unsigned char *data;
     unsigned int length;
     unsigned int pkt_interval;
-    unsigned int last_Sq;
     unsigned int curr_Sq;
     unsigned char packet_NAL_unit_type;
 } typedef *UnpackResult;
