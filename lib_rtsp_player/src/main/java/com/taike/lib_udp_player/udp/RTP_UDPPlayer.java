@@ -19,7 +19,7 @@ import java.net.MulticastSocket;
  */
 
 public class RTP_UDPPlayer {
-    private static final String TAG = "RTSPPlayer";
+    private static final String TAG = "RTP_UDPPlayer";
     //MediaCodec variable
     private volatile boolean isPlaying = false;
     static String multiCastHost = "239.0.0.200";
@@ -31,6 +31,7 @@ public class RTP_UDPPlayer {
     private final static int MAX_UDP_PACKET_LEN = 65507;//UDP包大小限制
     private static final int MAX_FRAME_LEN = 8 * 1024 * 1024;//视频帧大小限制
     private NativeUDPPlayer nativeUDPPlayer;
+
 
     public RTP_UDPPlayer(SurfaceView surfaceView) {
         HandlerThread handlerThread = new HandlerThread("FUCK h264Data Handler");
@@ -45,16 +46,22 @@ public class RTP_UDPPlayer {
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
+                Log.d(TAG, "surfaceCreated() called with: holder = [" + holder + "]");
                 nativeUDPPlayer.configPlayer(holder.getSurface(), surfaceView.getWidth(), surfaceView.getHeight());
+                if (nativeUDPPlayer.getState() == PlayState.PAUSE) {
+                    nativeUDPPlayer.play();
+                }
             }
 
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                Log.d(TAG, "surfaceChanged() called with: holder = [" + holder + "], format = [" + format + "], width = [" + width + "], height = [" + height + "]");
                 nativeUDPPlayer.changeSurface(holder.getSurface(), width, height);
             }
 
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {
+                Log.d(TAG, "surfaceDestroyed() called with: holder = [" + holder + "]");
                 nativeUDPPlayer.pause();
             }
         });

@@ -1,13 +1,40 @@
 package com.taike.lib_udp_player.udp;
 
 
+import android.util.Log;
 import android.view.Surface;
 
 public class NativeUDPPlayer {
+    private static final String TAG = "NativeUDPPlayer";
     static {
         System.loadLibrary("udp_player");
     }
+    private PlayState state;
 
+    private OnPlayStateChangeListener onStateChangeListener;
+
+    public void setOnStateChangeListener(OnPlayStateChangeListener onStateChangeListener) {
+        this.onStateChangeListener = onStateChangeListener;
+    }
+
+    public PlayState getState() {
+        return state;
+    }
+    
+    
+    //for call in native
+    public void onPlayerStateChange(int state) {
+        Log.d(TAG, "onPlayerStateChange() called with: state = [" + state + "]");
+        for (PlayState s : PlayState.values()) {
+            if (state == s.ordinal()) {
+                this.state = s;
+                if (onStateChangeListener != null) {
+                    onStateChangeListener.onStateChange(s);
+                }
+            }
+        }
+    }
+    
 
     //-------------for native-------------------------
     public native int init(boolean isDebug);
@@ -23,6 +50,8 @@ public class NativeUDPPlayer {
     public native int stop();
 
     public native int pause();
+
+
 
 
 }

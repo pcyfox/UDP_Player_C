@@ -27,16 +27,43 @@ public:
     jclass clazz = NULL;
     JNIEnv *env{};
     jobject object = NULL;
-    jmethodID unpackResultCallbackMid = NULL;
+    jmethodID jMid_onStateChangeId = NULL;
 };
 
 static PlayerBridgeEnv playerEnv;
 static Player player;
-
+static int changeState = -1;
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     playerEnv.vm = vm;
     return JNI_VERSION_1_6;
+}
+
+void *ChangeState(void *s) {
+    if (playerEnv.object != NULL) {
+        JNIEnv *env = NULL;
+        int ret = playerEnv.vm->AttachCurrentThread(&env, NULL);
+        if (ret == 0 && env) {
+            int iState = *(int *) s;
+            env->CallVoidMethod(playerEnv.object, playerEnv.jMid_onStateChangeId, iState);
+
+        } else {
+            LOGE("onStateChange() get jEnv error");
+        }
+        playerEnv.vm->DetachCurrentThread();
+    }
+    return NULL;
+}
+
+
+const void *onStateChange(PlayState state) {
+    if (playerEnv.object != NULL) {
+        pthread_t thread = NULL;
+        changeState = state;
+        pthread_create(&thread, NULL, ChangeState, &changeState);
+        pthread_detach(pthread_self());
+    }
+    return NULL;
 }
 
 
@@ -50,6 +77,7 @@ Java_com_taike_lib_1udp_1player_udp_NativeUDPPlayer_init(JNIEnv *env, jobject th
     jclass clazz = env->GetObjectClass(thiz);
     playerEnv.clazz = clazz;
     playerEnv.env = env;
+    playerEnv.jMid_onStateChangeId = env->GetMethodID(clazz, "onPlayerStateChange", "(I)V");
     return PLAYER_RESULT_OK;
 }
 
@@ -65,7 +93,7 @@ Java_com_taike_lib_1udp_1player_udp_NativeUDPPlayer_configPlayer(JNIEnv *env, jo
     if (!window) {
         PLAYER_RESULT_ERROR;
     }
-
+    player.SetStateChangeListener(reinterpret_cast<void (*)(PlayState)>(onStateChange));
     return player.Configure(window, w, h);
 }
 
