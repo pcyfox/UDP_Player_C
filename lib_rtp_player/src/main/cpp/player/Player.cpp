@@ -142,7 +142,7 @@ void *Decode(void *info) {
             LOGE("Decode() output buffers changed");
         } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
         } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
-            LOGE("Decode() video no output buffer right now");
+       //     LOGE("Decode() video no output buffer right now");
         } else {
             LOGE("Decode() unexpected info code: %zd", status);
         }
@@ -285,6 +285,7 @@ void unpackCallback(UnpackResult result) {
 
     playerInfo.packetQueue.put(avPacket);
     free(result);
+    result = NULL;
 }
 
 

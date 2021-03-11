@@ -115,7 +115,7 @@ static int isDebug = 1;
    *
    */
 
-static unsigned int last_Sq=0;
+static unsigned long long last_Sq = 0;
 
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
              Callback callback) {
@@ -135,13 +135,12 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
         LOGE("illegal data,it's too small");
         return -1;
     }
-    const int currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
+    const unsigned long long currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
     result->curr_Sq = currSq;
     if (last_Sq != 0) {
-        result->pkt_interval = last_Sq - currSq;
-        if (isDebug && result->pkt_interval != -1) {
-            LOGW("maybe lost %d frame lastSq=%d,currSq=%d", result->pkt_interval, last_Sq,
-                 currSq);
+        result->pkt_interval = currSq - last_Sq;
+        if (isDebug && result->pkt_interval != 1) {
+            LOGW("maybe lost %d frame lastSq=%d,currSq=%d", result->pkt_interval, last_Sq, currSq);
         }
     }
 
@@ -263,9 +262,17 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
                     result->packet_NAL_unit_type = 0x61;
                     rtpPacket[13] = head_P;
                 }
+                if (frameLen > maxFrameLen - 5) {
+                    LOGE("frame length > max packet size!");
+                    return -1;
+                }
                 memcpy(frame + frameLen, rtpPacket + 9, offHeadSize + 3);
                 frameLen += offHeadSize + 3;
             } else {
+                if (frameLen > maxFrameLen - 5) {
+                    LOGE("frame length > max packet size!");
+                    return -1;
+                }
                 memcpy(frame + frameLen, rtpPacket + 14, offHeadSize - 2);
                 frameLen += offHeadSize - 2;
             }
@@ -287,7 +294,7 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
         }
 
     }
-
     free(rtpPacket);
+    rtpPacket = NULL;
     return 1;
 }

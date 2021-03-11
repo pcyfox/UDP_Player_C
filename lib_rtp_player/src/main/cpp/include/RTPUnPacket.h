@@ -7,11 +7,11 @@
 
 
 struct RtpUnpackResult {
-    unsigned char *data;
     unsigned int length;
     unsigned int pkt_interval;
     unsigned int curr_Sq;
     unsigned char packet_NAL_unit_type;
+    unsigned char *data;
 } typedef *UnpackResult;
 
 
