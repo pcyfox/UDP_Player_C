@@ -1,5 +1,5 @@
 #include "Player.h"
-#include "android_log.h"
+#include "Android_log.h"
 #include "include/Utils.h"
 #include <android/native_window_jni.h>
 #include <android/native_window.h>
@@ -124,7 +124,6 @@ void *Decode(void *info) {
 
                 delete packet;
                 packet = NULL;
-
                 if (status != AMEDIA_OK) {
                     LOGE("Decode queue input buffer error status=%d", status);
                 }
@@ -282,7 +281,6 @@ void unpackCallback(UnpackResult result) {
     avPacket->nalu_type = result->packet_NAL_unit_type;
     avPacket->cq = result->curr_Sq;
     avPacket->pkt_interval = result->pkt_interval;
-
     playerInfo.packetQueue.put(avPacket);
     free(result);
     result = NULL;

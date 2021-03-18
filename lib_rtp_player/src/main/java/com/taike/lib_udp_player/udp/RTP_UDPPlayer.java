@@ -29,7 +29,8 @@ public class RTP_UDPPlayer {
     private final Handler handler;
     private boolean isMultiBroadCastMod = true;
     private final static int MAX_UDP_PACKET_LEN = 65507;//UDP包大小限制
-    private static final int MAX_FRAME_LEN = 8 * 1024 * 1024;//视频帧大小限制
+
+    private static final int MAX_FRAME_LEN = 4 * 1024 * 1024;//视频帧大小限制
     private NativeUDPPlayer nativeUDPPlayer;
 
 
@@ -109,7 +110,7 @@ public class RTP_UDPPlayer {
                 } else {
                     dataSocket.receive(dataPacket);
                 }
-                nativeUDPPlayer.handleRTPPkt(receiveByte, receiveByte.length, MAX_FRAME_LEN);
+                nativeUDPPlayer.handleRTPPkt(receiveByte, dataPacket.getLength(), MAX_FRAME_LEN);
             } catch (Exception e) {
                 e.printStackTrace();
             }

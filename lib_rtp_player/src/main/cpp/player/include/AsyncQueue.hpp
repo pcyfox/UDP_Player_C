@@ -14,7 +14,7 @@
 #include "Player.h"
 #include "PlayerResult.h"
 #include "AVPacket.h"
-#include <../include/android_log.h>
+#include <../include/Android_log.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -15,3 +15,4 @@
 #define LOGWX(tag, ...) __android_log_print(ANDROID_LOG_WARN, tag, __VA_ARGS__)
 #define LOGEX(tag, ...) __android_log_print(ANDROID_LOG_ERROR, tag, __VA_ARGS__)
 #define LOGIX(tag, ...) __android_log_print(ANDROID_LOG_INFO, tag, __VA_ARGS__)
+

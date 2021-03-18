@@ -9,10 +9,10 @@
 class AVPacket {
 public:
     unsigned char *data;
-    int size;
-    int nalu_type;
-    int cq;
-    int pkt_interval;
+    unsigned int size;
+    unsigned int nalu_type;
+    unsigned int cq;
+    unsigned int pkt_interval;
     int pts = -1;
 
 public:

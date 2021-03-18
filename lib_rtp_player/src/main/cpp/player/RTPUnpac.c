@@ -3,7 +3,8 @@
 //
 
 #include <string.h>
-#include <android_log.h>
+#include <Android_log.h>
+#include <unistd.h>
 #include "RTPUnPacket.h"
 #include "malloc.h"
 
@@ -13,9 +14,9 @@
 #define head_4  0x01
 #define head_I  0x65
 #define head_P  0x61
+#define RTP_HEAD_LEN  12
 
-
-static int isDebug = 1;
+static int isDebug = -1;
 
 /**
    * RTSP发起/终结流媒体、RTP传输流媒体数据 、RTCP对RTP进行控制，同步。
@@ -88,10 +89,12 @@ static int isDebug = 1;
    * S: 1 bit
    * 当设置成1,开始位指示分片NAL单元的开始。当跟随的FU荷载不是分片NAL单元荷载的开始，开始位设为0。
    * E: 1 bit
-   * 当设置成1, 结束位指示分片NAL单元的结束，即, 荷载的最后字节也是分片NAL单元的最后一个字节。当跟随的FU荷载不是分片NAL单元的最后分片,结束位设置为0。
+   * 当设置成1, 结束位指示分片NAL单元的结束，即荷载的最后字节也是分片NAL单元的最后一个字节。当跟随的FU荷载不是分片NAL单元的最后分片,结束位设置为0。
    * R: 1 bit
    * 保留位必须设置为0，接收者必须忽略该位。
    * Type: 5 bits  5:IDR,1:P
+   *
+   *
    * <p>
    * <p>
    * <p>
@@ -116,25 +119,35 @@ static int isDebug = 1;
    */
 
 static unsigned long long last_Sq = 0;
+static unsigned char *frame = NULL;
+static unsigned int frameLen = 0;
+
+
+static void
+printCharsHex(unsigned char *data, unsigned int length, unsigned int printStart,
+              unsigned int printEnd, char *tag) {
+    usleep(100);
+    LOGD("-----------------------------%s--------------------------------------->", tag);
+    if (printStart + printEnd >= length) {
+        return;
+    }
+    for (unsigned int i = printStart; i < printEnd; ++i) {
+        LOGD("------------printChars() TAG=%s:i=%d,char=%02x", tag, i, *(data + i));
+    }
+}
 
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
              Callback callback) {
-    UnpackResult result = (UnpackResult) malloc(sizeof(struct RtpUnpackResult));
-    result->length = 0;
-    result->data = NULL;
-/*
-    if (isDebug) {
-        LOGI("--------------UnPack-----------------------");
-        for (int i = 0; i < 15; ++i) {
-            LOGD("extra data i=%d,data= %02x", i, *(rtpPacket + i));
-        }
-    }
-*/
-    int offHeadSize = length - 12;
+    int offHeadSize = length - RTP_HEAD_LEN;
     if (offHeadSize < 2) {
         LOGE("illegal data,it's too small");
         return -1;
     }
+
+    UnpackResult result = (UnpackResult) malloc(sizeof(struct RtpUnpackResult));
+    result->length = 0;
+    result->data = NULL;
+
     const unsigned long long currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
     result->curr_Sq = currSq;
     if (last_Sq != 0) {
@@ -145,11 +158,17 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
     }
 
     last_Sq = currSq;
-    static int frameLen = 0;
     //第13个字节
     unsigned char fCurPacketNALUnitType = (rtpPacket[12] & 0x1F);
     result->packet_NAL_unit_type = fCurPacketNALUnitType;
-    unsigned char *frame = NULL;
+    if (fCurPacketNALUnitType != 28) {
+        frameLen = 0;
+        if (frame != NULL) {
+            free(frame);
+            frame = NULL;
+        }
+    }
+
     switch (fCurPacketNALUnitType) {
         case 1://P
         case 6:
@@ -161,22 +180,9 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             data[1] = head_2;
             data[2] = head_3;
             data[3] = head_4;
-/*
-            if (fCurPacketNALUnitType == 1) {
-                LOGD("Frame:P");
-            } else {
-                LOGI("Frame:I");
-            }
-*/
-
-            memcpy(data + 4, rtpPacket + 12, offHeadSize);
+            memcpy(data + 4, rtpPacket + RTP_HEAD_LEN, offHeadSize);
             result->length = 4 + offHeadSize;
             result->data = data;
-/*
-            for (int i = 0; i < 5; ++i) {
-                LOGD("------------new extra data i=%d,data= %02x", i, *(data + i));
-            }
-*/
             callback(result);
             break;
         }
@@ -212,7 +218,7 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             callback(ppsResult);
 
             //--------------IDR------------------------------
-            unsigned int retain = length - (ppsSizeEnd + ppsSize) - 1;
+            int retain = length - (ppsSizeEnd + ppsSize) - 1;
             if (retain > 2) {
                 unsigned char *idr = (unsigned char *) calloc(retain + 5, sizeof(char));
                 idr[0] = head_1;
@@ -237,62 +243,62 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             break;
         }
 
-        case 28:
-        case 29: { // // FU-A or FU-B
-            LOGD("Frame:FU-A or FU-B");
-            if (!frame) {
-                frame = (unsigned char *) malloc(maxFrameLen);
+        case 28: { // FU-A
+            if (frame == NULL) {
+                frame = (unsigned char *) calloc(maxFrameLen, sizeof(char));
+                if (frame == NULL) {
+                    LOGE("FU-A frame calloc fail!,size=%d", maxFrameLen);
+                    return -1;
+                }
             }
-
             // For these NALUs, the first two bytes are the FU indicator （at 13） and the FU header (14).
             // If the start bit is set, we reconstruct the original NAL header into byte 1:
-            int FU_Header = rtpPacket[13] & 0xff;
-            //     LOGD("------------extra FU_Header= %02x", FU_Header);
+            int FU_Header = rtpPacket[13] & 0xFF;
             if (FU_Header == 0x85 || FU_Header == 0x81) {
                 rtpPacket[9] = head_1;
                 rtpPacket[10] = head_2;
                 rtpPacket[11] = head_3;
                 rtpPacket[12] = head_4;
                 if (FU_Header == 0x85) {
-                    //IDR
+                    //I Frame start
                     rtpPacket[13] = head_I;
-                    result->packet_NAL_unit_type = 0x65;
+                    result->packet_NAL_unit_type = head_I;
                 } else {
-                    //P
-                    result->packet_NAL_unit_type = 0x61;
+                    //P Frame start
+                    result->packet_NAL_unit_type = head_P;
                     rtpPacket[13] = head_P;
                 }
-                if (frameLen > maxFrameLen - 5) {
-                    LOGE("frame length > max packet size!");
-                    return -1;
-                }
+                frameLen=0;
                 memcpy(frame + frameLen, rtpPacket + 9, offHeadSize + 3);
                 frameLen += offHeadSize + 3;
             } else {
-                if (frameLen > maxFrameLen - 5) {
-                    LOGE("frame length > max packet size!");
-                    return -1;
-                }
+                //14=RTP Header len +FU-Indicator+FU-Header
                 memcpy(frame + frameLen, rtpPacket + 14, offHeadSize - 2);
                 frameLen += offHeadSize - 2;
             }
+
+            if (frameLen >= maxFrameLen) {
+                frameLen = 0;
+                break;
+                LOGE("FU-A pack data error,frameLen>=maxFrameLen!");
+            }
+
             //0100 000-type:S=0 E=1 分片帧结束 R=0:
             //IDR帧结束：0100 0001
             //P帧结束：  0100 0005
             if (FU_Header == 0x45 || FU_Header == 0x41) {//I帧或P帧分包结束
-                result->data = frame;
+                result->data = (unsigned char *) calloc(frameLen, sizeof(char));
+                memcpy(result->data, frame, frameLen);
                 result->length = frameLen;
                 callback(result);
+                memset(frame, 0, frameLen);
                 frameLen = 0;
             }
-
             break;
         }
-
         default: {
-            LOGW("Un support RTP type!");
+            LOGW("not support NAL ,type=%d", fCurPacketNALUnitType);
         }
-
     }
     free(rtpPacket);
     rtpPacket = NULL;
