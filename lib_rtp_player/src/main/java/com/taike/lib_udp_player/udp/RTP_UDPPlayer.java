@@ -110,7 +110,7 @@ public class RTP_UDPPlayer {
                 } else {
                     dataSocket.receive(dataPacket);
                 }
-                nativeUDPPlayer.handleRTPPkt(receiveByte, dataPacket.getLength(), MAX_FRAME_LEN,false);
+                nativeUDPPlayer.handleRTPPkt(receiveByte, dataPacket.getLength(), MAX_FRAME_LEN,true);
             } catch (Exception e) {
                 e.printStackTrace();
             }

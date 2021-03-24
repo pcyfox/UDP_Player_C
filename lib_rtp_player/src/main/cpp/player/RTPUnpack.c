@@ -15,9 +15,8 @@
 #define head_I  0x65
 #define head_P  0x61
 #define RTP_HEAD_LEN  12
-#define  RTP_LITE_HEADER_LEN  2
+#define RTP_LITE_HEADER_LEN  2
 
-static int isDebug = -1;
 
 /**
    * RTSP发起/终结流媒体、RTP传输流媒体数据 、RTCP对RTP进行控制，同步。
@@ -119,6 +118,7 @@ static int isDebug = -1;
    *
    */
 
+static int isDebug = -1;
 static unsigned long long last_Sq = 0;
 static unsigned char *frame = NULL;
 static unsigned int frameLen = 0;
@@ -157,7 +157,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
     } else {
         currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
     }
-    LOGI("--------currSq=%lld", currSq);
     result->curr_Sq = currSq;
     if (last_Sq != 0 && currSq != 0) {
         result->pkt_interval = currSq - last_Sq;
@@ -186,9 +185,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
         case 8:
         case 5: {
             unsigned char *data = (unsigned char *) calloc(offHeadSize + 4, sizeof(char));
-            data[0] = head_1;
-            data[1] = head_2;
-            data[2] = head_3;
             data[3] = head_4;
             memcpy(data + 4, rtpPacket + headerLen, offHeadSize);
             result->length = 4 + offHeadSize;
@@ -201,9 +197,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             //--------------SPS------------------------------
             unsigned int spsSize = (rtpPacket[headerLen + 1] << 8) + rtpPacket[headerLen + 2];
             unsigned char *sps = (unsigned char *) calloc(spsSize + 4, sizeof(char));
-            sps[0] = head_1;
-            sps[1] = head_2;
-            sps[2] = head_3;
             sps[3] = head_4;
             memcpy(sps + 4, rtpPacket + headerLen + 3, spsSize);
             result->length = spsSize + 4;
@@ -216,9 +209,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             int ppsSize = ((rtpPacket[ppsSizeStart] & 0xff) << 8) + rtpPacket[ppsSizeEnd] & 0xff;
             unsigned len = ppsSize + 4;
             unsigned char *pps = (unsigned char *) calloc(len, sizeof(char));
-            pps[0] = head_1;
-            pps[1] = head_2;
-            pps[2] = head_3;
             pps[3] = head_4;
             memcpy(pps + 4, rtpPacket + ppsSizeEnd + 1, ppsSize);
             UnpackResult ppsResult = (UnpackResult) malloc(sizeof(struct RtpUnpackResult));
@@ -232,9 +222,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             int retain = length - (ppsSizeEnd + ppsSize) - 1;
             if (retain > 2) {
                 unsigned char *idr = (unsigned char *) calloc(retain + 5, sizeof(char));
-                idr[0] = head_1;
-                idr[1] = head_2;
-                idr[2] = head_3;
                 idr[3] = head_4;
                 idr[4] = head_I;
                 memcpy(idr + 5, rtpPacket + ppsSizeEnd + ppsSize + 1, retain);
@@ -267,9 +254,9 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             int FU_Header = rtpPacket[headerLen + 1] & 0xFF;
 
             if (FU_Header == 0x85 || FU_Header == 0x81) {
-                frame[0] = head_1;
-                frame[1] = head_2;
-                frame[2] = head_3;
+                //frame[0] = head_1;
+                //frame[1] = head_2;
+                //frame[2] = head_3;
                 frame[3] = head_4;
                 if (FU_Header == 0x85) {
                     //I Frame start
@@ -297,7 +284,6 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
                 break;
                 LOGE("FU-A pack data error,frameLen>=maxFrameLen!");
             }
-
             //0100 000-type:S=0 E=1 分片帧结束 R=0:
             //IDR帧结束：0100 0001
             //P帧结束：  0100 0005
