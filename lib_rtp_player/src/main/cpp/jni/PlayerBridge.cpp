@@ -139,10 +139,11 @@ extern "C"
 JNIEXPORT jint JNICALL
 Java_com_taike_lib_1udp_1player_udp_NativeUDPPlayer_handleRTPPkt(JNIEnv *env, jobject thiz,
                                                                  jbyteArray pkt, int len,
-                                                                 int maxFrameLen) {
+                                                                 int maxFrameLen,
+                                                                 jboolean isLiteMode) {
     jbyte *data = (env->GetByteArrayElements(pkt, JNI_FALSE));
     auto *dataCopy = (unsigned char *) calloc(len, sizeof(char));
     memcpy(dataCopy, data, len);
     env->ReleaseByteArrayElements(pkt, data, JNI_FALSE);
-    return player.HandleRTPPkt(dataCopy, len, maxFrameLen);
+    return player.HandleRTPPkt(dataCopy, len, maxFrameLen, isLiteMode);
 }

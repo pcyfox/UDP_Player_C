@@ -17,7 +17,7 @@ add_library( # Sets the name of the library.
         player/AVPacket.cpp
         player/StateListener.cpp
         player/PlayerInfo.cpp
-        player/RTPUnpac.c
+        player/RTPUnpack.c
         )
 
 find_library(android-log-lib log)

@@ -141,7 +141,7 @@ void *Decode(void *info) {
             LOGE("Decode() output buffers changed");
         } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
         } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
-       //     LOGE("Decode() video no output buffer right now");
+            //     LOGE("Decode() video no output buffer right now");
         } else {
             LOGE("Decode() unexpected info code: %zd", status);
         }
@@ -287,12 +287,13 @@ void unpackCallback(UnpackResult result) {
 }
 
 
-int Player::HandleRTPPkt(unsigned char *pkt, unsigned int len, unsigned int maxFrameLen) {
+int Player::HandleRTPPkt(unsigned char *pkt, unsigned int len, unsigned int maxFrameLen,
+                         int isLiteMod) {
     if (playerInfo.GetPlayState() != STARTED) {
         LOGE("HandleRTPPkt() fail,player not started!");
         return PLAYER_RESULT_ERROR;
     }
-    return UnPacket(pkt, len, maxFrameLen, unpackCallback);
+    return UnPacket(pkt, len, maxFrameLen, isLiteMod, unpackCallback);
 }
 
 Player::~Player() = default;

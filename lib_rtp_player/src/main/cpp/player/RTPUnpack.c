@@ -15,6 +15,7 @@
 #define head_I  0x65
 #define head_P  0x61
 #define RTP_HEAD_LEN  12
+#define  RTP_LITE_HEADER_LEN  2
 
 static int isDebug = -1;
 
@@ -123,24 +124,26 @@ static unsigned char *frame = NULL;
 static unsigned int frameLen = 0;
 
 
-static void
-printCharsHex(unsigned char *data, unsigned int length, unsigned int printStart,
-              unsigned int printEnd, char *tag) {
-    usleep(100);
-    LOGD("-----------------------------%s--------------------------------------->", tag);
-    if (printStart + printEnd >= length) {
+void printCharsHex(char *data, int length, int printLen, char *tag) {
+    LOGD("-----------------------------%s-printLen=%d--------------------------------------->", tag,
+         printLen);
+    if (printLen > length) {
         return;
     }
-    for (unsigned int i = printStart; i < printEnd; ++i) {
+    for (int i = 0; i < printLen; ++i) {
         LOGD("------------printChars() TAG=%s:i=%d,char=%02x", tag, i, *(data + i));
     }
 }
 
+
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
+             unsigned int isLiteMod,/*是否为RTP青春版*/
              Callback callback) {
-    int offHeadSize = length - RTP_HEAD_LEN;
+
+    int headerLen = isLiteMod == 1 ? RTP_LITE_HEADER_LEN : RTP_HEAD_LEN;
+    int offHeadSize = length - headerLen;
     if (offHeadSize < 2) {
-        LOGE("illegal data,it's too small");
+        LOGE("illegal data,packet is too small");
         return -1;
     }
 
@@ -148,18 +151,25 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
     result->length = 0;
     result->data = NULL;
 
-    const unsigned long long currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
+    unsigned long long currSq;
+    if (isLiteMod) {
+        currSq = ((rtpPacket[0] & 0xFF) << 8) + (rtpPacket[1] & 0xFF);
+    } else {
+        currSq = ((rtpPacket[2] & 0xFF) << 8) + (rtpPacket[3] & 0xFF);
+    }
+    LOGI("--------currSq=%lld", currSq);
     result->curr_Sq = currSq;
-    if (last_Sq != 0) {
+    if (last_Sq != 0 && currSq != 0) {
         result->pkt_interval = currSq - last_Sq;
         if (isDebug && result->pkt_interval != 1) {
-            LOGW("maybe lost %d frame lastSq=%d,currSq=%d", result->pkt_interval, last_Sq, currSq);
+            LOGW("maybe lost %d frame lastSq=%lld,currSq=%lld", result->pkt_interval, last_Sq,
+                 currSq);
         }
     }
 
     last_Sq = currSq;
     //第13个字节
-    unsigned char fCurPacketNALUnitType = (rtpPacket[12] & 0x1F);
+    char fCurPacketNALUnitType = (rtpPacket[headerLen] & 0x1F);
     result->packet_NAL_unit_type = fCurPacketNALUnitType;
     if (fCurPacketNALUnitType != 28) {
         frameLen = 0;
@@ -180,7 +190,7 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             data[1] = head_2;
             data[2] = head_3;
             data[3] = head_4;
-            memcpy(data + 4, rtpPacket + RTP_HEAD_LEN, offHeadSize);
+            memcpy(data + 4, rtpPacket + headerLen, offHeadSize);
             result->length = 4 + offHeadSize;
             result->data = data;
             callback(result);
@@ -189,29 +199,30 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
 
         case 24: { // STAP-A
             //--------------SPS------------------------------
-            int spsSize = (rtpPacket[13] << 8) + rtpPacket[14];
+            unsigned int spsSize = (rtpPacket[headerLen + 1] << 8) + rtpPacket[headerLen + 2];
             unsigned char *sps = (unsigned char *) calloc(spsSize + 4, sizeof(char));
             sps[0] = head_1;
             sps[1] = head_2;
             sps[2] = head_3;
             sps[3] = head_4;
-            memcpy(sps + 4, rtpPacket + 15, spsSize);
+            memcpy(sps + 4, rtpPacket + headerLen + 3, spsSize);
             result->length = spsSize + 4;
             result->data = sps;
             callback(result);
 
             //--------------PPS------------------------------
-            int ppsSizeStart = 14 + spsSize + 1;
-            int ppsSizeEnd = ppsSizeStart + 1;
+            unsigned int ppsSizeStart = headerLen + spsSize + 3;
+            unsigned int ppsSizeEnd = ppsSizeStart + 1;
             int ppsSize = ((rtpPacket[ppsSizeStart] & 0xff) << 8) + rtpPacket[ppsSizeEnd] & 0xff;
-            unsigned char *pps = (unsigned char *) calloc(ppsSize + 4, sizeof(char));
+            unsigned len = ppsSize + 4;
+            unsigned char *pps = (unsigned char *) calloc(len, sizeof(char));
             pps[0] = head_1;
             pps[1] = head_2;
             pps[2] = head_3;
             pps[3] = head_4;
             memcpy(pps + 4, rtpPacket + ppsSizeEnd + 1, ppsSize);
             UnpackResult ppsResult = (UnpackResult) malloc(sizeof(struct RtpUnpackResult));
-            ppsResult->length = ppsSize + 4;
+            ppsResult->length = len;
             ppsResult->data = pps;
             ppsResult->packet_NAL_unit_type = result->packet_NAL_unit_type;
             ppsResult->pkt_interval = result->pkt_interval;
@@ -253,27 +264,31 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
             }
             // For these NALUs, the first two bytes are the FU indicator （at 13） and the FU header (14).
             // If the start bit is set, we reconstruct the original NAL header into byte 1:
-            int FU_Header = rtpPacket[13] & 0xFF;
+            int FU_Header = rtpPacket[headerLen + 1] & 0xFF;
+
             if (FU_Header == 0x85 || FU_Header == 0x81) {
-                rtpPacket[9] = head_1;
-                rtpPacket[10] = head_2;
-                rtpPacket[11] = head_3;
-                rtpPacket[12] = head_4;
+                frame[0] = head_1;
+                frame[1] = head_2;
+                frame[2] = head_3;
+                frame[3] = head_4;
                 if (FU_Header == 0x85) {
                     //I Frame start
-                    rtpPacket[13] = head_I;
+                    frame[4] = head_I;
                     result->packet_NAL_unit_type = head_I;
                 } else {
                     //P Frame start
                     result->packet_NAL_unit_type = head_P;
-                    rtpPacket[13] = head_P;
+                    frame[4] = head_P;
                 }
-                frameLen=0;
-                memcpy(frame + frameLen, rtpPacket + 9, offHeadSize + 3);
+                frameLen = 0;
+                //printCharsHex(rtpPacket, length, headerLen + 5, "PKT-raw");
+                //14=RTP Header len +FU-Indicator+FU-Header
+                memcpy(frame + frameLen + 5, rtpPacket + headerLen + 2, offHeadSize - 2);
                 frameLen += offHeadSize + 3;
+                //printCharsHex(frame, length, headerLen + 5, "PKT-copy");
             } else {
                 //14=RTP Header len +FU-Indicator+FU-Header
-                memcpy(frame + frameLen, rtpPacket + 14, offHeadSize - 2);
+                memcpy(frame + frameLen, rtpPacket + headerLen + 2, offHeadSize - 2);
                 frameLen += offHeadSize - 2;
             }
 

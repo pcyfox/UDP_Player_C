@@ -43,7 +43,7 @@ public class NativeUDPPlayer {
 
     public native int changeSurface(Surface surface, int w, int h);
 
-    public native int handleRTPPkt(byte[] rtpPkt, int pktLen, int maxFrameLen);
+    public native int handleRTPPkt(byte[] rtpPkt, int pktLen, int maxFrameLen,boolean isLiteMod);
 
     public native int play();
 

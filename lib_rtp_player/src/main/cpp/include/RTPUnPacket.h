@@ -9,7 +9,7 @@
 struct RtpUnpackResult {
     unsigned int length;
     unsigned int pkt_interval;
-    unsigned int curr_Sq;
+    unsigned long long curr_Sq;
     unsigned char packet_NAL_unit_type;
     unsigned char *data;
 } typedef *UnpackResult;
@@ -19,6 +19,7 @@ typedef void (*Callback)(UnpackResult
 result);
 
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
+             unsigned int isLiteMod,
              Callback callback);
 
 #endif //UDP_PLAYER_RTPUNPACKET_H
