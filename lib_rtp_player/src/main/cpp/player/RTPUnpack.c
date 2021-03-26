@@ -268,11 +268,11 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
                     frame[4] = head_P;
                 }
                 frameLen = 0;
-                //printCharsHex(rtpPacket, length, headerLen + 5, "PKT-raw");
+            //  printCharsHex(rtpPacket, length, headerLen + 5, "PKT-raw");
                 //14=RTP Header len +FU-Indicator+FU-Header
                 memcpy(frame + frameLen + 5, rtpPacket + headerLen + 2, offHeadSize - 2);
                 frameLen += offHeadSize + 3;
-                //printCharsHex(frame, length, headerLen + 5, "PKT-copy");
+              //  printCharsHex(frame, length, headerLen + 5, "PKT-copy");
             } else {
                 //14=RTP Header len +FU-Indicator+FU-Header
                 memcpy(frame + frameLen, rtpPacket + headerLen + 2, offHeadSize - 2);
