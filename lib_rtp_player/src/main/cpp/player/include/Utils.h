@@ -5,7 +5,6 @@
 #ifndef TCTS_EDU_APP_RECODER_UTILS_H
 #define TCTS_EDU_APP_RECODER_UTILS_H
 
-#include <cstdint>
 #include <sys/time.h>
 
 static int64_t getCurrentTime()
@@ -29,9 +28,6 @@ static int64_t getCurrentTime()
       ((const uint8_t*)(x))[1])
 
 
-class Utils {
-
-};
 
 
 #endif //TCTS_EDU_APP_RECODER_UTILS_H

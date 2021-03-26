@@ -1,10 +1,11 @@
 //
 // Created by LN on 2021/3/1.
 //
-
+#include <stdlib.h>
 #include <string.h>
 #include <Android_log.h>
 #include <unistd.h>
+#include <Utils.h>
 #include "RTPUnPacket.h"
 #include "malloc.h"
 
@@ -118,10 +119,18 @@
    *
    */
 
+struct S_ReceiveDataInfo {
+    unsigned long startTime;
+    unsigned long receiveCount;
+    unsigned int lostCount;
+} typedef *ReceiveDataInfo;
+
 static int isDebug = -1;
 static unsigned long long last_Sq = 0;
 static unsigned char *frame = NULL;
 static unsigned int frameLen = 0;
+
+ReceiveDataInfo receiveDataInfo = NULL;
 
 
 void printCharsHex(char *data, int length, int printLen, char *tag) {
@@ -135,23 +144,35 @@ void printCharsHex(char *data, int length, int printLen, char *tag) {
     }
 }
 
+void ClearReceiveDataInfo() {
+    receiveDataInfo->receiveCount = 0;
+    receiveDataInfo->lostCount = 0;
+}
 
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
              unsigned int isLiteMod,/*是否为RTP青春版*/
              Callback callback) {
 
+    if (isDebug && receiveDataInfo == NULL) {
+        receiveDataInfo = malloc(sizeof(struct S_ReceiveDataInfo));
+        receiveDataInfo->startTime = getCurrentTime();
+        receiveDataInfo->receiveCount = 0;
+    }
     int headerLen = isLiteMod == 1 ? RTP_LITE_HEADER_LEN : RTP_HEAD_LEN;
     int offHeadSize = length - headerLen;
     if (offHeadSize < 2) {
         LOGE("illegal data,packet is too small");
         return -1;
     }
+    if (receiveDataInfo != NULL) {
+        receiveDataInfo->receiveCount++;
+    }
 
     UnpackResult result = (UnpackResult) malloc(sizeof(struct RtpUnpackResult));
     result->length = 0;
     result->data = NULL;
 
-    unsigned long long currSq;
+    long long currSq;
     if (isLiteMod) {
         currSq = ((rtpPacket[0] & 0xFF) << 8) + (rtpPacket[1] & 0xFF);
     } else {
@@ -160,9 +181,30 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
     result->curr_Sq = currSq;
     if (last_Sq != 0 && currSq != 0) {
         result->pkt_interval = currSq - last_Sq;
+        if (result->pkt_interval < 0) {
+            result->pkt_interval = -result->pkt_interval;
+        }
         if (isDebug && result->pkt_interval != 1) {
+            receiveDataInfo->lostCount += result->pkt_interval;
             LOGW("maybe lost %d frame lastSq=%lld,currSq=%lld", result->pkt_interval, last_Sq,
                  currSq);
+        }
+
+        if (isDebug) {
+            if (currSq <= 1) {
+                ClearReceiveDataInfo();
+            }
+            int64_t currentTime = getCurrentTime();
+            if (currentTime - receiveDataInfo->startTime >= 5 * 1000) {
+                LOGD("pkt lostCount-receiveCount=%d-%ld",
+                     receiveDataInfo->lostCount, receiveDataInfo->receiveCount);
+                double lostRate =
+                        (double) receiveDataInfo->lostCount /
+                        (double) receiveDataInfo->receiveCount;
+                LOGD("pkt lost rate=%.2lf", lostRate);
+                receiveDataInfo->startTime = currentTime;
+                ClearReceiveDataInfo();
+            }
         }
     }
 
@@ -195,6 +237,7 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
 
         case 24: { // STAP-A
             //--------------SPS------------------------------
+            LOGD("------------------SPS PPS------------------------------------------------");
             unsigned int spsSize = (rtpPacket[headerLen + 1] << 8) + rtpPacket[headerLen + 2];
             unsigned char *sps = (unsigned char *) calloc(spsSize + 4, sizeof(char));
             sps[3] = head_4;
@@ -268,11 +311,11 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
                     frame[4] = head_P;
                 }
                 frameLen = 0;
-            //  printCharsHex(rtpPacket, length, headerLen + 5, "PKT-raw");
+                //  printCharsHex(rtpPacket, length, headerLen + 5, "PKT-raw");
                 //14=RTP Header len +FU-Indicator+FU-Header
                 memcpy(frame + frameLen + 5, rtpPacket + headerLen + 2, offHeadSize - 2);
                 frameLen += offHeadSize + 3;
-              //  printCharsHex(frame, length, headerLen + 5, "PKT-copy");
+                //  printCharsHex(frame, length, headerLen + 5, "PKT-copy");
             } else {
                 //14=RTP Header len +FU-Indicator+FU-Header
                 memcpy(frame + frameLen, rtpPacket + headerLen + 2, offHeadSize - 2);
