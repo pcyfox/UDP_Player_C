@@ -1,4 +1,4 @@
-package com.taike.lib_udp_player.udp;
+package com.taike.lib_udp_player;
 
 
 import android.util.Log;
@@ -43,7 +43,7 @@ public class NativeUDPPlayer {
 
     public native int changeSurface(Surface surface, int w, int h);
 
-    public native int handleRTPPkt(byte[] rtpPkt, int pktLen, int maxFrameLen,boolean isLiteMod);
+    public native int handlePkt(byte[] rtpPkt, int pktLen, int maxFrameLen, boolean isLiteMod);
 
     public native int play();
 
