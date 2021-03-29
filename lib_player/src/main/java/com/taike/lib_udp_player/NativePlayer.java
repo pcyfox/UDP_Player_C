@@ -4,8 +4,8 @@ package com.taike.lib_udp_player;
 import android.util.Log;
 import android.view.Surface;
 
-public class NativeUDPPlayer {
-    private static final String TAG = "NativeUDPPlayer";
+public class NativePlayer {
+    private static final String TAG = "NativePlayer";
     static {
         System.loadLibrary("udp_player");
     }

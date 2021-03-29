@@ -69,8 +69,8 @@ const void *onStateChange(PlayState state) {
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_init(JNIEnv *env, jobject thiz,
-                                                     jboolean is_debug) {
+Java_com_taike_lib_1udp_1player_NativePlayer_init(JNIEnv *env, jobject thiz,
+                                                  jboolean is_debug) {
 
     player.SetDebug(is_debug);
     playerEnv.object = env->NewGlobalRef(thiz);
@@ -85,9 +85,9 @@ Java_com_taike_lib_1udp_1player_NativeUDPPlayer_init(JNIEnv *env, jobject thiz,
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_configPlayer(JNIEnv *env, jobject thiz,
-                                                             jobject surface,
-                                                             jint w, jint h) {
+Java_com_taike_lib_1udp_1player_NativePlayer_configPlayer(JNIEnv *env, jobject thiz,
+                                                          jobject surface,
+                                                          jint w, jint h) {
 
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
     if (!window) {
@@ -102,9 +102,9 @@ Java_com_taike_lib_1udp_1player_NativeUDPPlayer_configPlayer(JNIEnv *env, jobjec
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_changeSurface(JNIEnv *env, jobject thiz,
-                                                              jobject surface, jint w,
-                                                              jint h) {
+Java_com_taike_lib_1udp_1player_NativePlayer_changeSurface(JNIEnv *env, jobject thiz,
+                                                           jobject surface, jint w,
+                                                           jint h) {
 
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
     if (!window) {
@@ -116,14 +116,14 @@ Java_com_taike_lib_1udp_1player_NativeUDPPlayer_changeSurface(JNIEnv *env, jobje
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_play(JNIEnv *env, jobject thiz) {
+Java_com_taike_lib_1udp_1player_NativePlayer_play(JNIEnv *env, jobject thiz) {
     return player.Play();
 }
 
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_stop(JNIEnv *env, jobject thiz) {
+Java_com_taike_lib_1udp_1player_NativePlayer_stop(JNIEnv *env, jobject thiz) {
     return player.Stop();
 }
 
@@ -131,16 +131,16 @@ Java_com_taike_lib_1udp_1player_NativeUDPPlayer_stop(JNIEnv *env, jobject thiz) 
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_pause(JNIEnv *env, jobject thiz) {
+Java_com_taike_lib_1udp_1player_NativePlayer_pause(JNIEnv *env, jobject thiz) {
     return player.Pause(0);
 }
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_taike_lib_1udp_1player_NativeUDPPlayer_handlePkt(JNIEnv *env, jobject thiz,
-                                                          jbyteArray pkt, int len,
-                                                          int maxFrameLen,
-                                                          jboolean isLiteMode) {
+Java_com_taike_lib_1udp_1player_NativePlayer_handlePkt(JNIEnv *env, jobject thiz,
+                                                       jbyteArray pkt, int len,
+                                                       int maxFrameLen,
+                                                       jboolean isLiteMode) {
     jbyte *data = (env->GetByteArrayElements(pkt, JNI_FALSE));
     auto *dataCopy = (unsigned char *) calloc(len, sizeof(char));
     memcpy(dataCopy, data, len);

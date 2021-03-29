@@ -10,9 +10,8 @@
         android:keepScreenOn="true"
         tools:context=".MainActivity">
 
-
-        <SurfaceView
-            android:id="@+id/udp_surface_view"
+        <com.taike.lib_udp_player.MultiCastPlayerView
+            android:id="@+id/view_mcpv"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:text="Hello World!"

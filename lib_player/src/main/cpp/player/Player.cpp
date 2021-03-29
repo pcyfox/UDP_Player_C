@@ -62,8 +62,8 @@ int createAMediaCodec(AMediaCodec **mMediaCodec, int width, int height, uint8_t 
             return PLAYER_RESULT_ERROR;
         } else {
             LOGI("createAMediaCodec() success!");
+            *mMediaCodec = mediaCodec;
         }
-        *mMediaCodec = mediaCodec;
     } else {
         AMediaCodec_flush(*mMediaCodec);
         AMediaCodec_stop(*mMediaCodec);
@@ -88,6 +88,7 @@ int createAMediaCodec(AMediaCodec **mMediaCodec, int width, int height, uint8_t 
         mMediaCodec = NULL;
         return PLAYER_RESULT_ERROR;
     } else {
+        playerInfo.videoFormat = videoFormat;
         LOGD("configure AMediaCodec success!");
     }
     return PLAYER_RESULT_OK;
@@ -130,13 +131,26 @@ void *Decode(void *info) {
             }
         }
 
-        AMediaCodecBufferInfo bufferInfo;
-        ssize_t status = AMediaCodec_dequeueOutputBuffer(codec, &bufferInfo, 100);
-        if (status >= 0) {
-            AMediaCodec_releaseOutputBuffer(codec, status, bufferInfo.size != 0);
-            if (bufferInfo.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
+        auto *bufferInfo = (AMediaCodecBufferInfo *) malloc(
+                sizeof(AMediaCodecBufferInfo));
+        ssize_t status = AMediaCodec_dequeueOutputBuffer(codec, bufferInfo, 100);
+        if (status >= 0 && bufferInfo != NULL) {
+            AMediaFormat *format = playerInfo.videoFormat;
+            int32_t width = -1;
+            AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_MAX_HEIGHT, &width);
+            int32_t height = -1;
+            AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_MAX_HEIGHT, &height);
+            if (width > 0 && height > 0) {
+                LOGD("video format:w=%d,h=%d", width, height);
+                if (playerInfo.height * playerInfo.width != width * height) {
+                }
+            }
+
+            AMediaCodec_releaseOutputBuffer(codec, status, bufferInfo->size != 0);
+            if (bufferInfo->flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
                 LOGE("Decode() video producer output EOS");
             }
+
         } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             LOGE("Decode() output buffers changed");
         } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
@@ -145,6 +159,7 @@ void *Decode(void *info) {
         } else {
             LOGE("Decode() unexpected info code: %zd", status);
         }
+        delete bufferInfo;
     }
     LOGD("-------Decode over!---------");
     return NULL;

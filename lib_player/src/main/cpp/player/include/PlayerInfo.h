@@ -18,6 +18,7 @@
 class PlayerInfo {
 
 public:
+    AMediaFormat *videoFormat = NULL;
     AMediaCodec *AMediaCodec = NULL;
     unsigned int width, height;
     AsyncQueue<AVPacket> packetQueue;

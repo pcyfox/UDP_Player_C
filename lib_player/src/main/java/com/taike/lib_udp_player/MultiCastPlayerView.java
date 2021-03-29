@@ -1,10 +1,14 @@
 package com.taike.lib_udp_player;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.ViewGroup;
+import android.widget.RelativeLayout;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -15,26 +19,58 @@ import java.net.MulticastSocket;
  * Created by Auser on 2018/5/28.
  */
 
-public class MultiCastPlayer {
+public class MultiCastPlayerView extends RelativeLayout {
     private static final String TAG = "MultiCastPlayer";
     //MediaCodec variable
     private volatile boolean isPlaying = false;
     static String multiCastHost = "239.0.0.200";
     private int videoPort = 2021;
     private MulticastSocket multicastSocket;
-    private final Handler handler;
+    private Handler handler;
     private final static int MAX_UDP_PACKET_LEN = 65507;//UDP包大小限制
     private NativePlayer nativeUDPPlayer;
     private int maxFrameLen;
+    private final SurfaceView surfaceView;
 
-    public MultiCastPlayer(String host, int port, int maxFrameLen, SurfaceView surfaceView) {
+    public MultiCastPlayerView(Context context) {
+        super(context);
+    }
+
+    public MultiCastPlayerView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
+    public MultiCastPlayerView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+    }
+
+    public MultiCastPlayerView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+        super(context, attrs, defStyleAttr, defStyleRes);
+    }
+
+    {
+        surfaceView = new SurfaceView(getContext());
+
+    }
+
+    private void addSurfaceView() {
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        addView(surfaceView, params);
+    }
+
+    public void config(String host, int port, int maxFrameLen) {
         multiCastHost = host;
         videoPort = port;
         this.maxFrameLen = maxFrameLen;
-        HandlerThread handlerThread = new HandlerThread("Fuck Vidwo Data Handler");
+        HandlerThread handlerThread = new HandlerThread("Fuck Video Data Handler");
         handlerThread.start();
         handler = new Handler(handlerThread.getLooper());
-        initMultiBroadcast();
+        post(() -> {
+            initMultiBroadcast();
+            addSurfaceView();
+
+        });
         initNativePlayer(surfaceView);
     }
 
@@ -55,8 +91,21 @@ public class MultiCastPlayer {
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                nativeUDPPlayer.configPlayer(holder.getSurface(), surfaceView.getWidth(), surfaceView.getHeight());
-
+                int rootW = getWidth();
+                int rootH = getHeight();
+                int videoW = 1920;
+                int videoH = 1080;
+                RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) surfaceView.getLayoutParams();
+                lp.width = getWidth();
+                lp.height = getHeight();
+                if (rootH * videoW > videoH * rootH) {
+                    lp.height = (int) (rootW * (videoH * 1.0 / videoW));
+                } else {
+                    lp.width = (int) (rootH * (videoW * 1.0 / videoH));
+                }
+                surfaceView.setLayoutParams(lp);
+                holder.setFixedSize(lp.width, lp.height);
+                nativeUDPPlayer.configPlayer(holder.getSurface(), lp.width, lp.height);
                 if (nativeUDPPlayer.getState() == PlayState.PAUSE) {
                     nativeUDPPlayer.play();
                 }
