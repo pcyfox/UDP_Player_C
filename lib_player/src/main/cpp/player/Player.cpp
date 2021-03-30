@@ -42,9 +42,11 @@ int GetNALUType(AVPacket *packet) {
 }
 
 
-int createAMediaCodec(AMediaCodec **mMediaCodec, int width, int height, uint8_t *sps, int spsSize,
-                      uint8_t *pps, int ppsSize,
-                      ANativeWindow *surface, const char *mine) {
+int
+createAMediaCodec(AMediaCodec **mMediaCodec, unsigned int width, unsigned int height, uint8_t *sps,
+                  int spsSize,
+                  uint8_t *pps, int ppsSize,
+                  ANativeWindow *window, const char *mine) {
 
     LOGI("createAMediaCodec() called width=%d,height=%d,spsSize=%d,ppsSize=%d,mine=%s\n", width,
          height,
@@ -80,8 +82,7 @@ int createAMediaCodec(AMediaCodec **mMediaCodec, int width, int height, uint8_t 
     if (ppsSize && pps) {
         AMediaFormat_setBuffer(videoFormat, "csd-1", pps, ppsSize); // pps
     }
-
-    media_status_t status = AMediaCodec_configure(*mMediaCodec, videoFormat, surface, NULL, 0);
+    media_status_t status = AMediaCodec_configure(*mMediaCodec, videoFormat, window, NULL, 0);
     if (status != AMEDIA_OK) {
         LOGE("configure AMediaCodec fail!,ret=%d", status);
         AMediaCodec_delete(*mMediaCodec);

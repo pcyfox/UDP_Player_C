@@ -17,6 +17,6 @@ class MainActivity : AppCompatActivity() {
         playerView.config(multiCastHost, videoPort, maxFrameLen)
         playerView.postDelayed({
             playerView.startPlay()
-        }, 100)
+        }, 200)
     }
 }

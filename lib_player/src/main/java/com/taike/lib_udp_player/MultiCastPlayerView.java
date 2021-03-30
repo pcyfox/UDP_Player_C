@@ -1,6 +1,7 @@
 package com.taike.lib_udp_player;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.AttributeSet;
@@ -8,6 +9,7 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
+import android.view.autofill.AutofillValue;
 import android.widget.RelativeLayout;
 
 import java.io.IOException;
@@ -53,8 +55,14 @@ public class MultiCastPlayerView extends RelativeLayout {
 
     }
 
+    @Override
+    protected void onFinishInflate() {
+        super.onFinishInflate();
+        setBackgroundColor(Color.WHITE);
+    }
+
     private void addSurfaceView() {
-        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         params.addRule(RelativeLayout.CENTER_IN_PARENT);
         addView(surfaceView, params);
     }
@@ -67,9 +75,8 @@ public class MultiCastPlayerView extends RelativeLayout {
         handlerThread.start();
         handler = new Handler(handlerThread.getLooper());
         post(() -> {
-            initMultiBroadcast();
             addSurfaceView();
-
+            initMultiBroadcast();
         });
         initNativePlayer(surfaceView);
     }
@@ -91,21 +98,11 @@ public class MultiCastPlayerView extends RelativeLayout {
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                int rootW = getWidth();
-                int rootH = getHeight();
-                int videoW = 1920;
-                int videoH = 1080;
-                RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) surfaceView.getLayoutParams();
-                lp.width = getWidth();
-                lp.height = getHeight();
-                if (rootH * videoW > videoH * rootH) {
-                    lp.height = (int) (rootW * (videoH * 1.0 / videoW));
-                } else {
-                    lp.width = (int) (rootH * (videoW * 1.0 / videoH));
-                }
-                surfaceView.setLayoutParams(lp);
-                holder.setFixedSize(lp.width, lp.height);
-                nativeUDPPlayer.configPlayer(holder.getSurface(), lp.width, lp.height);
+                int width = surfaceView.getWidth();
+                int height = surfaceView.getHeight();
+                holder.setKeepScreenOn(true);
+                holder.setFixedSize(width, height);
+                nativeUDPPlayer.configPlayer(holder.getSurface(), width, height);
                 if (nativeUDPPlayer.getState() == PlayState.PAUSE) {
                     nativeUDPPlayer.play();
                 }
