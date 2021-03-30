@@ -25,14 +25,12 @@ public:
     pthread_t decode_thread = 0;
     ANativeWindow *window = NULL;
 
-    unsigned int windowWith;
-    unsigned int windowHeight;
+    unsigned int windowWith = 0;
+    unsigned int windowHeight = 0;
 
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     const char *mine = "video/avc";
-
-public:
 
     volatile enum PlayState playState = UN_USELESS;
 

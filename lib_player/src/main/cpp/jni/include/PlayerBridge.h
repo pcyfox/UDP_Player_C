@@ -5,9 +5,11 @@
 #ifndef UDP_PLAYER_PLAYERBRIDGE_H
 #define UDP_PLAYER_PLAYERBRIDGE_H
 
+#include "../../player/include/Player.h"
+#include "PlayerBridgeEnv.h"
 
 class PlayerBridge {
-
+public:
 };
 
 

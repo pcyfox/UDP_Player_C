@@ -7,12 +7,14 @@ project("udp_player")
 
 include_directories(include)
 include_directories(player/include)
+include_directories(jni/include)
 
 add_library( # Sets the name of the library.
         udp_player# Sets the library as a shared library.
         SHARED #动态库
         # Provides a relative path to your source file(s).
         jni/PlayerBridge.cpp
+        jni/PlayerBridgeEnv.cpp
         player/Player.cpp
         player/AVPacket.cpp
         player/StateListener.cpp

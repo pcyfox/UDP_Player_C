@@ -237,7 +237,7 @@ int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned
 
         case 24: { // STAP-A
             //--------------SPS------------------------------
-            LOGD("------------------SPS PPS------------------------------------------------");
+           // LOGD("------------------SPS PPS------------------------------------------------");
             unsigned int spsSize = (rtpPacket[headerLen + 1] << 8) + rtpPacket[headerLen + 2];
             unsigned char *sps = (unsigned char *) calloc(spsSize + 4, sizeof(char));
             sps[3] = head_4;

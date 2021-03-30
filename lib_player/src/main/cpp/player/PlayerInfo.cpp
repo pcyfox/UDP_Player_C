@@ -13,11 +13,11 @@ PlayerInfo::PlayerInfo() {
 
 PlayerInfo::~PlayerInfo() {
     LOGW("-------PlayerInfo Delete Start---------");
-    if (window) {
+    if (window != NULL) {
         ANativeWindow_release(window);
         window = NULL;
     }
-    if (AMediaCodec) {
+    if (AMediaCodec != NULL) {
         AMediaCodec_delete(AMediaCodec);
         AMediaCodec = NULL;
     }

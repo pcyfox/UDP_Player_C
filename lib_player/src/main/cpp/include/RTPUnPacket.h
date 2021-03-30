@@ -20,6 +20,6 @@ result);
 
 int UnPacket(unsigned char *rtpPacket, const unsigned int length, const unsigned int maxFrameLen,
              unsigned int isLiteMod,
-             Callback callback);
+             const Callback callback);
 
 #endif //UDP_PLAYER_RTPUNPACKET_H

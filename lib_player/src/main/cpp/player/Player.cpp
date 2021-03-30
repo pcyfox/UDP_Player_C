@@ -5,24 +5,22 @@
 #include <android/native_window.h>
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
-
-
 #include<queue>
 #include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
-#include "RTPUnPacket.h"
+#include "../include/RTPUnPacket.h"
 #endif
 #ifdef __cplusplus
 }
 #endif
 
-
-PlayerInfo playerInfo;
+static PlayerInfo *playerInfo;
 
 Player::Player() {
-    playerInfo.SetPlayState(INITIALIZED);
+    playerInfo = new PlayerInfo;
+    playerInfo->SetPlayState(INITIALIZED);
     LOGD("init player info over");
 }
 
@@ -43,10 +41,11 @@ int GetNALUType(AVPacket *packet) {
 
 
 int
-createAMediaCodec(AMediaCodec **mMediaCodec, unsigned int width, unsigned int height, uint8_t *sps,
-                  int spsSize,
-                  uint8_t *pps, int ppsSize,
-                  ANativeWindow *window, const char *mine) {
+Player::createAMediaCodec(AMediaCodec **mMediaCodec, unsigned int width, unsigned int height,
+                          uint8_t *sps,
+                          int spsSize,
+                          uint8_t *pps, int ppsSize,
+                          ANativeWindow *window, const char *mine) {
 
     LOGI("createAMediaCodec() called width=%d,height=%d,spsSize=%d,ppsSize=%d,mine=%s\n", width,
          height,
@@ -57,7 +56,7 @@ createAMediaCodec(AMediaCodec **mMediaCodec, unsigned int width, unsigned int he
         return PLAYER_RESULT_ERROR;
     }
 
-    if (!*mMediaCodec) {
+    if (*mMediaCodec == NULL) {
         AMediaCodec *mediaCodec = AMediaCodec_createDecoderByType(mine);
         if (!mediaCodec) {
             LOGE("createAMediaCodec() fail!");
@@ -89,14 +88,14 @@ createAMediaCodec(AMediaCodec **mMediaCodec, unsigned int width, unsigned int he
         mMediaCodec = NULL;
         return PLAYER_RESULT_ERROR;
     } else {
-        playerInfo.videoFormat = videoFormat;
+        playerInfo->videoFormat = videoFormat;
         LOGD("configure AMediaCodec success!");
     }
     return PLAYER_RESULT_OK;
 }
 
 
-void *Decode(void *info) {
+void *Player::Decode(void *info) {
     auto *pInfo = (PlayerInfo *) info;
     AMediaCodec *codec = pInfo->AMediaCodec;
     while (pInfo->GetPlayState() == STARTED) {
@@ -136,14 +135,14 @@ void *Decode(void *info) {
                 sizeof(AMediaCodecBufferInfo));
         ssize_t status = AMediaCodec_dequeueOutputBuffer(codec, bufferInfo, 100);
         if (status >= 0 && bufferInfo != NULL) {
-            AMediaFormat *format = playerInfo.videoFormat;
+            AMediaFormat *format = playerInfo->videoFormat;
             int32_t width = -1;
             AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_MAX_HEIGHT, &width);
             int32_t height = -1;
             AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_MAX_HEIGHT, &height);
             if (width > 0 && height > 0) {
                 LOGD("video format:w=%d,h=%d", width, height);
-                if (playerInfo.height * playerInfo.width != width * height) {
+                if (playerInfo->height * playerInfo->width != width * height) {
                 }
             }
 
@@ -169,9 +168,10 @@ void *Decode(void *info) {
 
 void Player::StartDecodeThread() {
     LOGI("Start decode thread");
-    pthread_create(&playerInfo.decode_thread, NULL, Decode, (void *) &playerInfo);
-    pthread_setname_np(playerInfo.decode_thread, "decode_thread");
-    pthread_detach(playerInfo.decode_thread);
+    void *param = playerInfo;
+    pthread_create(&playerInfo->decode_thread, NULL, Decode, param);
+    pthread_setname_np(playerInfo->decode_thread, "decode_thread");
+    pthread_detach(playerInfo->decode_thread);
 }
 
 
@@ -183,21 +183,21 @@ void Player::SetDebug(bool debug) {
 
 int Player::Configure(ANativeWindow *window, int w, int h) {
     LOGD("----------Configure() called with: w=%d,h=%d", w, h);
-    if (playerInfo.GetPlayState() != ERROR) {
-        playerInfo.window = window;
-        playerInfo.windowWith = w;
-        playerInfo.windowHeight = h;
-        int ret = createAMediaCodec(&playerInfo.AMediaCodec, playerInfo.windowWith,
-                                    playerInfo.windowHeight,
+    if (playerInfo->GetPlayState() != ERROR) {
+        playerInfo->window = window;
+        playerInfo->windowWith = w;
+        playerInfo->windowHeight = h;
+        int ret = createAMediaCodec(&playerInfo->AMediaCodec, playerInfo->windowWith,
+                                    playerInfo->windowHeight,
                                     NULL,
                                     NULL,
                                     NULL,
                                     NULL,
-                                    playerInfo.window, playerInfo.mine);
+                                    playerInfo->window, playerInfo->mine);
         if (ret == PLAYER_RESULT_ERROR) {
             return ret;
         } else {
-            playerInfo.SetPlayState(PREPARED);
+            playerInfo->SetPlayState(PREPARED);
         }
     } else {
         LOGE("can't configure due to init player ERROR\n");
@@ -209,22 +209,22 @@ int Player::Configure(ANativeWindow *window, int w, int h) {
 
 int Player::ChangeWindow(ANativeWindow *window, int w, int h) {
     LOGI("--------ChangeWindow() called with w=%d,h=%d", w, h);
-    if (playerInfo.GetPlayState() == PAUSE) {
-        playerInfo.window = window;
-        playerInfo.windowWith = w;
-        playerInfo.windowHeight = h;
-        int ret = createAMediaCodec(&playerInfo.AMediaCodec, playerInfo.windowWith,
-                                    playerInfo.windowHeight,
+    if (playerInfo->GetPlayState() == PAUSE) {
+        playerInfo->window = window;
+        playerInfo->windowWith = w;
+        playerInfo->windowHeight = h;
+        int ret = createAMediaCodec(&playerInfo->AMediaCodec, playerInfo->windowWith,
+                                    playerInfo->windowHeight,
                                     NULL,
                                     NULL,
                                     NULL,
                                     NULL,
-                                    playerInfo.window, playerInfo.mine);
+                                    playerInfo->window, playerInfo->mine);
 
-        AMediaCodec_start(playerInfo.AMediaCodec);
+        AMediaCodec_start(playerInfo->AMediaCodec);
         if (ret == PLAYER_RESULT_OK) {
             LOGI("--------OnWindowChange() success! ");
-            playerInfo.SetPlayState(STARTED);
+            playerInfo->SetPlayState(STARTED);
             StartDecodeThread();
         }
     } else {
@@ -236,31 +236,31 @@ int Player::ChangeWindow(ANativeWindow *window, int w, int h) {
 
 
 void Player::SetStateChangeListener(void (*listener)(PlayState)) {
-    playerInfo.SetStateListener(listener);
+    playerInfo->SetStateListener(listener);
 }
 
 
 int Player::Play() {
     LOGI("--------Play()  called-------");
-    if (playerInfo.GetPlayState() == PAUSE) {
-        playerInfo.SetPlayState(STARTED);
+    if (playerInfo->GetPlayState() == PAUSE) {
+        playerInfo->SetPlayState(STARTED);
         return PLAYER_RESULT_OK;
     }
-    if (playerInfo.GetPlayState() != PREPARED) {
+    if (playerInfo->GetPlayState() != PREPARED) {
         LOGE("player is not PREPARED!\n");
         return PLAYER_RESULT_ERROR;
     }
 
-    media_status_t status = AMediaCodec_start(playerInfo.AMediaCodec);
+    media_status_t status = AMediaCodec_start(playerInfo->AMediaCodec);
     if (status != AMEDIA_OK) {
         LOGE("start AMediaCodec fail!\n");
-        AMediaCodec_delete(playerInfo.AMediaCodec);
-        playerInfo.AMediaCodec = NULL;
+        AMediaCodec_delete(playerInfo->AMediaCodec);
+        playerInfo->AMediaCodec = NULL;
         return PLAYER_RESULT_ERROR;
     } else {
         LOGI("------------AMediaCodec start success!!\n");
     }
-    playerInfo.SetPlayState(STARTED);
+    playerInfo->SetPlayState(STARTED);
     StartDecodeThread();
     return PLAYER_RESULT_OK;
 }
@@ -268,23 +268,27 @@ int Player::Play() {
 
 int Player::Pause(int delay) {
     LOGI("--------Pause()  called-------");
-    if (playerInfo.GetPlayState() != STARTED) {
+    if (playerInfo->GetPlayState() != STARTED) {
         LOGE("--------Pause()  called-,fail player not started------");
         return PLAYER_RESULT_ERROR;
     }
-    playerInfo.SetPlayState(PAUSE);
+    playerInfo->SetPlayState(PAUSE);
     return PLAYER_RESULT_OK;
 }
 
 
 int Player::Stop() {
     LOGI("--------Stop()  called-------");
-    if (playerInfo.GetPlayState() != STARTED) {
+    if (playerInfo->GetPlayState() != STARTED) {
         LOGE("playerInfo is not started");
         return PLAYER_RESULT_ERROR;
     }
-    playerInfo.SetPlayState(STOPPED);
-    AMediaCodec_stop(playerInfo.AMediaCodec);
+    playerInfo->SetPlayState(STOPPED);
+    AMediaCodec_stop(playerInfo->AMediaCodec);
+    if (playerInfo != NULL) {
+        delete playerInfo;
+        playerInfo = NULL;
+    }
     LOGD("--------Stop Over------");
     return PLAYER_RESULT_OK;
 }
@@ -297,7 +301,7 @@ void unpackCallback(UnpackResult result) {
     avPacket->nalu_type = result->packet_NAL_unit_type;
     avPacket->cq = result->curr_Sq;
     avPacket->pkt_interval = result->pkt_interval;
-    playerInfo.packetQueue.put(avPacket);
+    playerInfo->packetQueue.put(avPacket);
     free(result);
     result = NULL;
 }
@@ -305,12 +309,13 @@ void unpackCallback(UnpackResult result) {
 
 int Player::HandleRTPPkt(unsigned char *pkt, unsigned int len, unsigned int maxFrameLen,
                          int isLiteMod) {
-    if (playerInfo.GetPlayState() != STARTED) {
+    if (playerInfo->GetPlayState() != STARTED) {
         LOGE("HandleRTPPkt() fail,player not started!");
         return PLAYER_RESULT_ERROR;
     }
     return UnPacket(pkt, len, maxFrameLen, isLiteMod, unpackCallback);
 }
+
 
 Player::~Player() = default;
 

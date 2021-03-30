@@ -51,6 +51,8 @@ public class NativePlayer {
 
     public native int pause();
 
+    public native void release();
+
 
 
 

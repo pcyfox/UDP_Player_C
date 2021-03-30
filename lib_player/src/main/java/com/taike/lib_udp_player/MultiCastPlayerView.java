@@ -9,7 +9,6 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
-import android.view.autofill.AutofillValue;
 import android.widget.RelativeLayout;
 
 import java.io.IOException;
@@ -25,6 +24,8 @@ public class MultiCastPlayerView extends RelativeLayout {
     private static final String TAG = "MultiCastPlayer";
     //MediaCodec variable
     private volatile boolean isPlaying = false;
+    private volatile boolean isPause = false;
+
     static String multiCastHost = "239.0.0.200";
     private int videoPort = 2021;
     private MulticastSocket multicastSocket;
@@ -32,7 +33,7 @@ public class MultiCastPlayerView extends RelativeLayout {
     private final static int MAX_UDP_PACKET_LEN = 65507;//UDP包大小限制
     private NativePlayer nativeUDPPlayer;
     private int maxFrameLen;
-    private final SurfaceView surfaceView;
+    private SurfaceView surfaceView;
 
     public MultiCastPlayerView(Context context) {
         super(context);
@@ -50,24 +51,23 @@ public class MultiCastPlayerView extends RelativeLayout {
         super(context, attrs, defStyleAttr, defStyleRes);
     }
 
-    {
-        surfaceView = new SurfaceView(getContext());
-
-    }
-
-    @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
         setBackgroundColor(Color.WHITE);
     }
 
     private void addSurfaceView() {
+        surfaceView = new SurfaceView(getContext());
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         params.addRule(RelativeLayout.CENTER_IN_PARENT);
         addView(surfaceView, params);
     }
 
     public void config(String host, int port, int maxFrameLen) {
+        Log.d(TAG, "config() called with: host = [" + host + "], port = [" + port + "], maxFrameLen = [" + maxFrameLen + "]");
+        if (isPlaying) {
+            return;
+        }
         multiCastHost = host;
         videoPort = port;
         this.maxFrameLen = maxFrameLen;
@@ -76,9 +76,9 @@ public class MultiCastPlayerView extends RelativeLayout {
         handler = new Handler(handlerThread.getLooper());
         post(() -> {
             addSurfaceView();
+            initNativePlayer();
             initMultiBroadcast();
         });
-        initNativePlayer(surfaceView);
     }
 
     private void initMultiBroadcast() {
@@ -92,7 +92,7 @@ public class MultiCastPlayerView extends RelativeLayout {
     }
 
 
-    private void initNativePlayer(SurfaceView surfaceView) {
+    private void initNativePlayer() {
         nativeUDPPlayer = new NativePlayer();
         nativeUDPPlayer.init(BuildConfig.DEBUG);
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
@@ -105,6 +105,7 @@ public class MultiCastPlayerView extends RelativeLayout {
                 nativeUDPPlayer.configPlayer(holder.getSurface(), width, height);
                 if (nativeUDPPlayer.getState() == PlayState.PAUSE) {
                     nativeUDPPlayer.play();
+                    isPause = false;
                 }
             }
 
@@ -117,10 +118,27 @@ public class MultiCastPlayerView extends RelativeLayout {
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {
                 Log.d(TAG, "surfaceDestroyed() called with: holder = [" + holder + "]");
-                isPlaying = false;
+                isPause = true;
                 nativeUDPPlayer.pause();
             }
         });
+    }
+
+    private void startReceiveData() {
+        byte[] receiveByte = new byte[MAX_UDP_PACKET_LEN];
+        DatagramPacket dataPacket = new DatagramPacket(receiveByte, receiveByte.length);
+        while (isPlaying) {
+            if (isPause) {
+                continue;
+            }
+            try {
+                multicastSocket.receive(dataPacket);
+                nativeUDPPlayer.handlePkt(receiveByte, dataPacket.getLength(), maxFrameLen, true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        Log.e(TAG, "startReceiveData:() over!");
     }
 
     /*
@@ -136,30 +154,51 @@ public class MultiCastPlayerView extends RelativeLayout {
         }
     }
 
-    private void startReceiveData() {
-        byte[] receiveByte = new byte[MAX_UDP_PACKET_LEN];
-        DatagramPacket dataPacket = new DatagramPacket(receiveByte, receiveByte.length);
-        while (isPlaying) {
-            try {
-                multicastSocket.receive(dataPacket);
-                nativeUDPPlayer.handlePkt(receiveByte, dataPacket.getLength(), maxFrameLen, true);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        Log.e(TAG, "startReceiveData:() over!");
-    }
 
     /*
      *停止播放
      */
     public void stopPlay() {
         Log.d(TAG, "stopPlay() called");
+        if (!isPlaying) {
+            Log.e(TAG, "stopPlay() called,fuck player is not start");
+            return;
+        }
+        isPause = false;
         isPlaying = false;
+        if (handler != null) {
+            handler.getLooper().quitSafely();
+        }
+
+        if (multicastSocket != null) {
+            multicastSocket.close();
+        }
+        if (nativeUDPPlayer != null) {
+            nativeUDPPlayer.stop();
+        }
+
+        if (surfaceView != null) {
+            surfaceView.getHolder().getSurface().release();
+            removeView(surfaceView);
+        }
     }
 
 
     public void pause() {
+        if (isPlaying) {
+            isPause = true;
+        } else {
+            Log.e(TAG, "pause() called fail,player is not start!");
+        }
+    }
+
+
+    public void resume() {
+        if (isPause) {
+            isPause = false;
+        } else {
+            Log.d(TAG, "resume() called fail,player in not pause");
+        }
     }
 
     public static String bytesToHexString(byte[] src) {
